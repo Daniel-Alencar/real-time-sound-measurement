@@ -2,7 +2,7 @@ import RealTimeChart from "./components/RealTimeChart";
 
 function App() {
   return (
-    <div>
+    <div style={{ marginRight: 50 }}>
       <h2 style={{ marginLeft: 50 }}>
         Medições sonoras
       </h2>
