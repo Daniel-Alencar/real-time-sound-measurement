@@ -1,3 +1,4 @@
+import HistogramChart from "./components/HistogramChart";
 import RealTimeChart from "./components/RealTimeChart";
 
 function App() {
@@ -7,6 +8,10 @@ function App() {
         Medições sonoras
       </h2>
       <RealTimeChart />
+      <h2 style={{ marginLeft: 50 }}>
+        Histograma de hoje
+      </h2>
+      <HistogramChart />
     </div>
   );
 }
