@@ -1,3 +1,4 @@
+import AlertList from "./components/AlertList";
 import HistogramChart from "./components/HistogramChart";
 import RealTimeChart from "./components/RealTimeChart";
 
@@ -12,6 +13,7 @@ function App() {
         Histograma de hoje
       </h2>
       <HistogramChart />
+      <AlertList />
     </div>
   );
 }
