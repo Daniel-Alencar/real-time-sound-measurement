@@ -4,8 +4,8 @@ import { ref, onValue } from "firebase/database";
 
 // Estrutura dos dados vindos do Firebase
 interface FirebaseEntry {
-  data_hora: string; // Ex: "14:23:05"
-  microfone: number; // Ex: 85.1
+  data_hora: string;
+  microfone: number;
 }
 
 interface Alerta {
@@ -13,12 +13,11 @@ interface Alerta {
   mensagem: string;
 }
 
+// Configuração
+const LIMITE_DB = 70;
+const TEMPO_MINIMO_SEGUNDOS = 4;
 const DELAY_SOUND_MEASUREMENT_MS = 1000;
-
-const LIMITE_DB = 60;
-const TEMPO_MINIMO_SEGUNDOS = 2;
-
-const TEMPO_MINIMO = TEMPO_MINIMO_SEGUNDOS * 1000 / DELAY_SOUND_MEASUREMENT_MS;
+const MIN_SEQ_LENGTH = TEMPO_MINIMO_SEGUNDOS * 1000 / DELAY_SOUND_MEASUREMENT_MS;
 
 const AlertList: React.FC = () => {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
@@ -37,47 +36,60 @@ const AlertList: React.FC = () => {
       if (!values) return;
 
       const entradasOrdenadas = Object.values(values)
+        .filter((e): e is FirebaseEntry => e 
+          && typeof e.data_hora === "string" 
+          && typeof e.microfone === "number"
+        )
         .sort((a, b) => a.data_hora.localeCompare(b.data_hora));
 
-      const alertasDetectados: Alerta[] = [];
+      const novosAlertas: Alerta[] = [];
       let sequencia: FirebaseEntry[] = [];
 
-      entradasOrdenadas.forEach((entry, index) => {
-        if (entry.microfone > LIMITE_DB) {
-          sequencia.push(entry);
+      for (let i = 0; i < entradasOrdenadas.length; i++) {
+        const entrada = entradasOrdenadas[i];
+
+        if (entrada.microfone >= LIMITE_DB) {
+          sequencia.push(entrada);
         } else {
-          if (sequencia.length >= TEMPO_MINIMO) {
+          if (sequencia.length >= MIN_SEQ_LENGTH) {
             const primeiro = sequencia[0];
             const alerta: Alerta = {
               horario: primeiro.data_hora,
               mensagem: `No dia ${currentDate} no horário ${primeiro.data_hora}, as medições ultrapassaram ${LIMITE_DB}dB por cerca de ${TEMPO_MINIMO_SEGUNDOS}s`
             };
 
-            // Evita duplicatas (baseado no horário da primeira ocorrência)
-            if (!alertasDetectados.some(a => a.horario === alerta.horario)) {
-              alertasDetectados.push(alerta);
+            // Evita alerta duplicado para mesma hora
+            if (!novosAlertas.some(a => a.horario === alerta.horario)) {
+              novosAlertas.push(alerta);
             }
           }
           sequencia = [];
         }
 
-        // Verifica no fim do array se ainda há uma sequência válida
-        if (
-          index === entradasOrdenadas.length - 1 && 
-          sequencia.length >= TEMPO_MINIMO
-        ) {
+        // Caso o último valor seja alto e a sequência continue no fim
+        if (i === entradasOrdenadas.length - 1 && sequencia.length >= MIN_SEQ_LENGTH) {
           const primeiro = sequencia[0];
           const alerta: Alerta = {
             horario: primeiro.data_hora,
             mensagem: `No dia ${currentDate} no horário ${primeiro.data_hora}, as medições ultrapassaram ${LIMITE_DB}dB por cerca de ${TEMPO_MINIMO_SEGUNDOS}s`
           };
-          if (!alertasDetectados.some(a => a.horario === alerta.horario)) {
-            alertasDetectados.push(alerta);
+
+          if (!novosAlertas.some(a => a.horario === alerta.horario)) {
+            novosAlertas.push(alerta);
           }
         }
-      });
+      }
 
-      setAlertas(alertasDetectados);
+      // Só atualiza se houver novos alertas
+      setAlertas(prevAlertas => {
+        const combinados = [...prevAlertas];
+        novosAlertas.forEach(alerta => {
+          if (!combinados.some(a => a.horario === alerta.horario)) {
+            combinados.push(alerta);
+          }
+        });
+        return combinados;
+      });
     });
 
     return () => unsubscribe();
@@ -85,9 +97,9 @@ const AlertList: React.FC = () => {
 
   return (
     <div style={{ padding: "1rem", marginLeft: 50 }}>
-      <h3>Alertas de hoje</h3>
+      <h3>Alertas de Hoje</h3>
       {alertas.length === 0 ? (
-        <p>Nenhum alerta registrado hoje.</p>
+        <p>Nenhum alerta registrado.</p>
       ) : (
         <ul>
           {alertas.map((alerta, index) => (
